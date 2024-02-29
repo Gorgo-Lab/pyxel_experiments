@@ -12,6 +12,7 @@ class App:
         self.animation_speed = 2   # Lower is faster
         self.frame_counter = 0
 
+        pyxel.playm(0, loop=True)
         pyxel.run(self.update, self.draw)
 
 
@@ -24,7 +25,8 @@ class App:
         self.frame_counter = (self.frame_counter + 1) % self.animation_speed
         if self.frame_counter == 0:
             self.frame = (self.frame + 1) % self.animation_frames
-
+            if(self.frame == 6):
+                pyxel.play(1, pyxel.sounds[0]);
 
     def update_player(self):
         if pyxel.btn(pyxel.KEY_LEFT) or pyxel.btn(pyxel.GAMEPAD1_BUTTON_DPAD_LEFT):
