@@ -29,14 +29,21 @@ class App:
                 pyxel.play(1, pyxel.sounds[0]);
 
     def update_player(self):
+
+        # To make player move in isometric world both x & y coord must be updated
+
         if pyxel.btn(pyxel.KEY_LEFT) or pyxel.btn(pyxel.GAMEPAD1_BUTTON_DPAD_LEFT):
             self.px = max(self.px - 2, 0)
+            self.py = max(self.py - 1, 0)
         if pyxel.btn(pyxel.KEY_RIGHT) or pyxel.btn(pyxel.GAMEPAD1_BUTTON_DPAD_RIGHT):
             self.px = min(self.px + 2, pyxel.width - 16)
+            self.py = min(self.py + 1, pyxel.height - 16)
         if pyxel.btn(pyxel.KEY_UP) or pyxel.btn(pyxel.GAMEPAD1_BUTTON_DPAD_UP):
-            self.py = max(self.py - 2, 0)
+            self.py = max(self.py - 1, 0)
+            self.px = min(self.px + 2, pyxel.width - 16)
         if pyxel.btn(pyxel.KEY_DOWN) or pyxel.btn(pyxel.GAMEPAD1_BUTTON_DPAD_DOWN):
-            self.py = min(self.py + 2, pyxel.height - 16)
+            self.py = min(self.py + 1, pyxel.height - 16)
+            self.px = max(self.px - 2, 0)
 
 
     def draw(self):
