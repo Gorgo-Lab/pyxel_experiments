@@ -1,6 +1,8 @@
 import random
 import pyxel
+import math
 import pymunk
+from pyxel_draw_options import PyxelDrawOptions
 
 
 WIDTH = 128
@@ -13,6 +15,26 @@ ELASTICITY = 0.9    # divertente se = 1
 GRAVITY = (0, 98)
 
 
+
+def draw_rotated_square(x, y, angle, side_length, color):
+    # coordinate degli angoli del quadrato non ruotato
+    half_length = side_length / 2
+    angles = [0, math.pi / 2, math.pi, 3 * math.pi / 2]
+
+    # coordinate degli angoli
+    rotated_angles = [a + angle - math.radians(45) for a in angles]
+
+    # coordinate degli angoli ruotati
+    square_vertices = [(x + half_length * math.cos(a), y + half_length * math.sin(a)) for a in rotated_angles]
+
+    # quattro lati ruotati
+    pyxel.line(square_vertices[0][0], square_vertices[0][1], square_vertices[1][0], square_vertices[1][1], color)
+    pyxel.line(square_vertices[1][0], square_vertices[1][1], square_vertices[2][0], square_vertices[2][1], color)
+    pyxel.line(square_vertices[2][0], square_vertices[2][1], square_vertices[3][0], square_vertices[3][1], color)
+    pyxel.line(square_vertices[3][0], square_vertices[3][1], square_vertices[0][0], square_vertices[0][1], color)
+
+
+
 class World:
 
     def __init__(self):
@@ -21,22 +43,23 @@ class World:
         self.body.position = (0, 0)
 
         # aggiustato a mano :(
-        BORDER_THICKNESS = 5
+        BORDER_THICKNESS = 8
+        BORDER_FRICTION = 0.8
         BODER_ELASTICITY = ELASTICITY
         HALF_TILE = TILE_WIDTH / 2
 
         # borders
-        self.borders = []
 
-        top = pymunk.Segment(self.body, (HALF_TILE, HALF_TILE), (WIDTH - HALF_TILE, HALF_TILE), BORDER_THICKNESS)
-        left = pymunk.Segment(self.body, (HALF_TILE, HALF_TILE), (HALF_TILE, HEIGHT - 4), BORDER_THICKNESS)
-        bottom = pymunk.Segment(self.body, (WIDTH - HALF_TILE, HEIGHT - 4), (HALF_TILE, HEIGHT - HALF_TILE), BORDER_THICKNESS)
-        right = pymunk.Segment(self.body, (WIDTH - HALF_TILE, HEIGHT - HALF_TILE), (WIDTH - HALF_TILE, HALF_TILE), BORDER_THICKNESS)
+        bt = pymunk.Segment(self.body, (0, 0), (WIDTH - 1, 0), BORDER_THICKNESS)
+        bl = pymunk.Segment(self.body, (0, 0), (0, HEIGHT - 1), BORDER_THICKNESS)
+        br = pymunk.Segment(self.body, (WIDTH - 1, 0), (WIDTH - 1, HEIGHT - 1), BORDER_THICKNESS)
+        bb = pymunk.Segment(self.body, (0, HEIGHT - 1), (WIDTH - 1, HEIGHT - 1), BORDER_THICKNESS)
 
-        self.borders = [top, left, bottom, right]
+        self.borders = [bt, bl, br, bb]
 
         for border in self.borders:
             border.elasticity = BODER_ELASTICITY
+            border.friction = BORDER_FRICTION
 
     def register(self, space):
         space.add(self.body, *self.borders)
@@ -69,6 +92,7 @@ class PhysicBall:
 
         self.shape = pymunk.Circle(self.body, self.radius)
         self.shape.elasticity = ELASTICITY
+        self.shape.friction = ELASTICITY
 
     def register(self, space):
         space.add(self.body, self.shape)
@@ -96,11 +120,62 @@ class Ball:
 
 
 
+class PhysicThwomp: 
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.mass = 500
+        self.radius = 4
+        self.side_length = 32
+
+        w, h = round(self.side_length / 2), round(self.side_length / 2)
+        vs = [(round(a), round(b)) for a, b in [(-w/2,-h/2), (w/2,-h/2), (w/2,h/2), (-w/2,h/2)]]
+
+        inertia = pymunk.moment_for_poly(mass=self.mass, vertices=vs, radius=self.radius)
+
+        self.body = pymunk.Body(self.mass, inertia)
+        self.body.position = self.x, self.y
+
+        self.shape = pymunk.Poly(self.body, vs, radius=self.radius)
+        self.shape.elasticity = 0.2
+        self.shape.friction = 0.8
+
+        foo = 25
+        self.body.velocity = random.randint(-foo, foo), random.randint(-foo, foo)
+
+    def register(self, space):
+        space.add(self.body, self.shape)
+
+
+
+class Thwomp:
+
+    def __init__(self, physicThwomp, colore):
+        self.physicThwomp = physicThwomp
+        self.colore = colore
+        self.x, self.y = self.physicThwomp.body.position
+
+    def update(self):
+        # fetch position from physical world
+        self.x = round(self.physicThwomp.body.position[0])
+        self.y = round(self.physicThwomp.body.position[1])
+
+    def draw(self):
+        draw_rotated_square(self.x, self.y, self.physicThwomp.body.angle, self.physicThwomp.side_length, self.colore)
+        pyxel.fill(self.x, self.y, self.colore)
+        pyxel.blt(self.x - 4, self.y - 4, 0, 8, 0, 8, 8, 1)
+
+
 class App:
+
 
     def __init__(self):
         pyxel.init(width=WIDTH, height=HEIGHT, fps=FPS)
         pyxel.load("assets/assets.pyxres")
+
+        self.draw_options = PyxelDrawOptions()
+        self.toggle_draw_debug = False
 
         # space fisico
         self.space = pymunk.Space()
@@ -126,11 +201,20 @@ class App:
             palla = Ball(ppalla, color)
             self.palle.append(palla)
 
+        # generazione dei thwomp
+        pthwomp = PhysicThwomp(WIDTH / 2, HEIGHT / 2)
+        pthwomp.register(self.space)
+        self.thwomp = Thwomp(pthwomp, 11)
+
         pyxel.run(self.update, self.draw)
+
 
     def update(self):
         if pyxel.btnp(pyxel.KEY_Q):
             pyxel.quit()
+
+        if pyxel.btnp(pyxel.KEY_H):
+            self.toggle_draw_debug = not self.toggle_draw_debug
 
         # aggiorno la fisica
         self.space.step(1 / FPS)
@@ -142,15 +226,29 @@ class App:
         for palla in self.palle:
             palla.update()
 
+        # aggiorno il thwomp
+        self.thwomp.update()
+
+
     def draw(self):
         pyxel.cls(0)
-        
-        # disegno il mondo
-        self.world.draw()
 
-        # disegno le balls
-        for palla in self.palle:
-            palla.draw()
+        if self.toggle_draw_debug:
+            self.space.debug_draw(self.draw_options)
+        else:
+            # disegno il mondo
+            self.world.draw()
+
+            # disegno le balls
+            for palla in self.palle:
+                palla.draw()
+
+            # disegno i thwomp
+            self.thwomp.draw()
+
+        # testo
+        str = "On" if self.toggle_draw_debug else "Off"
+        pyxel.text(10, 10, f"(H) Debug: {str}", 7)
 
 
 App()
